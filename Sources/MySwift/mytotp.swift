@@ -30,6 +30,4 @@ func mytotp() {
   truncatedHash = truncatedHash % UInt32(pow(10, Float(6)))
 
   print("totp: ", String(format: "%0*u", 6, truncatedHash))
-  // print("CryptoKitFixed OTP value: \(String(format: "%0*u", 6, truncatedHash))")
-
 }
