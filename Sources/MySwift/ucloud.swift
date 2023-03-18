@@ -1,18 +1,9 @@
-import CryptoKit
+import Crypto
+// import CryptoKit
 import Foundation
+import FoundationNetworking
 
-@available(macOS 10.15, *)
-extension Digest {
-  var bytes: [UInt8] { Array(makeIterator()) }
-  var data: Data { Data(bytes) }
-
-  var hexStr: String {
-    bytes.map { String(format: "%02x", $0) }.joined()  // lower case
-    // bytes.map { String(format: "%02X", $0) }.joined() // upper case
-  }
-}
-
-func ucloud(_ limit: Int, _ offset: Int) {
+func listVM(_ limit: Int, _ offset: Int) {
   let PublicKey = "OmgolGAwCsGsMSo66+L0oDFKFUM6gVVKR0qsKTKwJr/zyCoKHsehIK8Ftq2DIotP"
   var params = [String: Any]()
   params = [
@@ -25,12 +16,17 @@ func ucloud(_ limit: Int, _ offset: Int) {
   ]
   params = verify_ac(&params)
   NSLog("com.gg.mycmd.log: params: %@", String(describing: params))
-  paramsRequest(params)
-
-  // for (key, value) in params {
-  //   NSLog("com.gg.mycmd.log: %@ : %@", key, String(describing: value))
-  // }
-  // NSLog("com.gg.mycmd.log: params: %@", String(describing: params))
+  let result = paramsRequest(params)
+  // print("result", paramsRequest(params))
+  for i in 0...(result["Infos"] as! [Any]).count - 1 {
+    print("VMID:   ", ((result["Infos"] as! [Any])[i] as! [String: Any])["VMID"]!)
+    print("Name:   ", ((result["Infos"] as! [Any])[i] as! [String: Any])["Name"]!)
+    print("State:  ", ((result["Infos"] as! [Any])[i] as! [String: Any])["State"]!)
+    print("CPU:    ", ((result["Infos"] as! [Any])[i] as! [String: Any])["CPU"]!)
+    print("Memory: ", ((result["Infos"] as! [Any])[i] as! [String: Any])["Memory"]!)
+    print("OSName: ", ((result["Infos"] as! [Any])[i] as! [String: Any])["OSName"]!)
+    print()
+  }
 }
 
 func verify_ac(_ params: inout [String: Any]) -> [String: Any] {
@@ -43,25 +39,22 @@ func verify_ac(_ params: inout [String: Any]) -> [String: Any] {
   params_data = params_data + private_key
   NSLog("com.gg.mycmd.log: params_data: %@", String(describing: params_data))
 
-  let data = params_data.data(using: String.Encoding.utf8)!
-  if #available(macOS 10.15, *) {
-    let digest = Insecure.SHA1.hash(data: data)
-    params["Signature"] = digest.hexStr
-  } else {
-    // Fallback on earlier versions
-  }
-  // NSLog("com.gg.mycmd.log: digest.data: %@", String(describing: digest.data))
-  // NSLog("com.gg.mycmd.log: digest.hexStr: %@", digest.hexStr.lowercased())
+  // sha1 params_data
+  params["Signature"] = Insecure.SHA1.hash(data: params_data.data(using: String.Encoding.utf8)!).map
+  { String(format: "%02x", $0) }.joined()
+
   return params
 }
 
-func paramsRequest(_ params: [String: Any]) {
+func paramsRequest(_ params: [String: Any]) -> [String: Any] {
   var request = URLRequest(url: URL(string: "http://10.11.104.1/api")!)
   request.setValue("application/json", forHTTPHeaderField: "Content-Type")
   request.setValue("text/plain", forHTTPHeaderField: "Accept")
   request.httpMethod = "POST"
   request.httpBody = try? JSONSerialization.data(withJSONObject: params)
   NSLog("com.gg.mycmd.log: httpBody: %@", String(decoding: request.httpBody!, as: UTF8.self))
+  let semaphore = DispatchSemaphore(value: 0)
+  var result: [String: Any]? = nil
   URLSession.shared.dataTask(with: request) { data, response, error in
     NSLog("com.gg.mycmd.log: URLSession.shared.dataTask")
     guard let data = data, error == nil else {
@@ -70,8 +63,10 @@ func paramsRequest(_ params: [String: Any]) {
     }
     let responseJSON = try? JSONSerialization.jsonObject(with: data, options: [])
     if let responseJSON = responseJSON as? [String: Any] {
-      NSLog("com.gg.mycmd.log: responseJSON: %@", String(describing: responseJSON))
+      result = responseJSON
+      semaphore.signal()
     }
   }.resume()
-  DispatchSemaphore(value: 0).wait()
+  semaphore.wait()
+  return result!
 }

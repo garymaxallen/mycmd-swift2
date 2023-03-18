@@ -1,3 +1,10 @@
-import MyC
+// import MyC
 
-ucloud(5, 0)
+import Foundation
+// import SwiftOTP
+// import OTPKit
+
+
+// listVM(Int(CommandLine.arguments[1]) ?? 5, Int(CommandLine.arguments[2]) ?? 0)
+
+mytotp()
